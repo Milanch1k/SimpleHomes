@@ -1,7 +1,9 @@
 package net.milanchik.simpleHomes;
 
+import net.milanchik.simpleHomes.commands.HomeCMD;
 import net.milanchik.simpleHomes.commands.HomesCMD;
 import net.milanchik.simpleHomes.commands.SimpleHomesCMD;
+import net.milanchik.simpleHomes.commands.StreamerModeCMD;
 import net.milanchik.simpleHomes.utils.ConfigManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -26,8 +28,21 @@ import java.util.*;
 public final class SimpleHomes extends JavaPlugin implements Listener {
     public Map<UUID, List<Location>> homesMap = new HashMap<>();
     private ConfigManager configManager;
-    public HomesCMD homesCMD;
     public Map<UUID, Integer> delayMap = new HashMap<>();
+    public List<UUID> streamerMode = new ArrayList<>();
+
+    public void setStreamerMode(List<UUID> streamerMode) {
+        this.streamerMode = streamerMode;
+    }
+
+    public List<UUID> getStreamerMode() {
+        return streamerMode;
+    }
+
+    public Map<UUID, List<Location>> getHomesMap() {
+        loadHomesFromConfig();
+        return homesMap;
+    }
 
     @Override
     public void onEnable() {
@@ -37,22 +52,24 @@ public final class SimpleHomes extends JavaPlugin implements Listener {
         configManager.setup("saves.yml");
         configManager.setup("lang.yml");
 
-        this.homesCMD = new HomesCMD(this);
-
         loadHomesFromConfig();
+        loadStreamersFromConfig();
 
         startDelayLoop();
 
         getServer().getPluginManager().registerEvents(this, this);
-        getCommand("homes").setExecutor(homesCMD);
+        getCommand("homes").setExecutor(new HomesCMD(this));
         getCommand("simplehomes").setExecutor(new SimpleHomesCMD(configManager));
         getCommand("simplehomes").setTabCompleter(new SimpleHomesCMD(configManager));
-
+        getCommand("home").setExecutor(new HomeCMD(this, configManager));
+        getCommand("home").setTabCompleter(new HomeCMD(this, configManager));
+        getCommand("SHStreamerMode").setExecutor(new StreamerModeCMD(this, configManager));
     }
 
     @Override
     public void onDisable() {
         saveHomesToConfig();
+        saveStreamersToConfig();
     }
 
     private void startDelayLoop() {
@@ -94,7 +111,7 @@ public final class SimpleHomes extends JavaPlugin implements Listener {
         }
     }
 
-    private void saveHomesToConfig() {
+    public void saveHomesToConfig() {
         for (UUID playerUUID : homesMap.keySet()) {
             List<Location> playerHomes = homesMap.get(playerUUID);
             List<String> homeLocations = new ArrayList<>();
@@ -105,6 +122,25 @@ public final class SimpleHomes extends JavaPlugin implements Listener {
 
             configManager.getConfig("saves.yml").set("homes." + playerUUID.toString(), homeLocations);
         }
+        configManager.saveConfig("saves.yml");
+    }
+
+    public void loadStreamersFromConfig() {
+        streamerMode.clear();
+        if (configManager.getConfig("saves.yml").contains("streamers")) {
+            List<String> streamerModeString = configManager.getConfig("saves.yml").getStringList("streamers");
+            for (String uuid : streamerModeString) {
+                streamerMode.add(UUID.fromString(uuid));
+            }
+        }
+    }
+
+    public void saveStreamersToConfig() {
+        List<String> uuids = new ArrayList<>();
+        for (UUID playerUUID : streamerMode) {
+            uuids.add(playerUUID.toString());
+        }
+        configManager.getConfig("saves.yml").set("streamers", uuids);
         configManager.saveConfig("saves.yml");
     }
 
@@ -267,10 +303,9 @@ public final class SimpleHomes extends JavaPlugin implements Listener {
     public void onBlockBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
         Material material = block.getType();
+        Location mainBedLocation = getMainBedLocation(block);
 
         if (!material.name().endsWith("_BED")) return;
-
-        Location mainBedLocation = getMainBedLocation(block);
 
         for (Map.Entry<UUID, List<Location>> entry : homesMap.entrySet()) {
             List<Location> playerHomes = entry.getValue();
@@ -332,30 +367,31 @@ public final class SimpleHomes extends JavaPlugin implements Listener {
 
             final int[] tpDelay = {configManager.getConfig("config.yml").getInt("tp-delay")};
             if (tpDelay[0] < 0) {
-                getLogger().severe("Invalid tp-delay value in config.yml! Disabling plugin...");
-                getServer().getPluginManager().disablePlugin(this);
-            }
+                player.teleport(homeLocation.clone().add(0.5, 0, 0.5));
 
-            int finalHomeIndex = homeIndex;
-            BukkitRunnable tpDelayRunnable = new BukkitRunnable() {
-                @Override
-                public void run() {
-                    if (tpDelay[0] == 0) {
-                        player.teleport(homeLocation.clone().add(0.5, 0, 0.5));
+                player.sendMessage(configManager.getConfig("lang.yml").getString("teleport-success", "§aTeleport to home #%index%!").replace("%index%", String.valueOf(homeIndex + 1)));
+                tpDelay[0] = tpDelay[0] - 1;
+            } else {
+                int finalHomeIndex = homeIndex;
+                BukkitRunnable tpDelayRunnable = new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (tpDelay[0] == 0) {
+                            player.teleport(homeLocation.clone().add(0.5, 0, 0.5));
 
-                        player.sendMessage(configManager.getConfig("lang.yml").getString("teleport-success", "§aTeleport to home #%index%!").replace("%index%", String.valueOf(finalHomeIndex + 1)));
-                        tpDelay[0] = tpDelay[0] - 1;
-                    } else if (tpDelay[0] > 0) {
-                        String actionbarMsg = configManager.getConfig("lang.yml").getString("tp-delay", "§fYou will be teleported in §3%secs% seconds to home #§3%index%");
-                        actionbarMsg = actionbarMsg.replace("%secs%", String.valueOf(tpDelay[0]))
-                                .replace("%index%", String.valueOf(finalHomeIndex + 1));
-                        player.sendActionBar(actionbarMsg);
-                        tpDelay[0] = tpDelay[0] - 1;
+                            player.sendMessage(configManager.getConfig("lang.yml").getString("teleport-success", "§aTeleport to home #%index%!").replace("%index%", String.valueOf(finalHomeIndex + 1)));
+                            tpDelay[0] = tpDelay[0] - 1;
+                        } else if (tpDelay[0] > 0) {
+                            String actionbarMsg = configManager.getConfig("lang.yml").getString("tp-delay", "§fYou will be teleported in §3%secs% §fseconds to home #§3%index%");
+                            actionbarMsg = actionbarMsg.replace("%secs%", String.valueOf(tpDelay[0]))
+                                    .replace("%index%", String.valueOf(finalHomeIndex + 1));
+                            player.sendActionBar(actionbarMsg);
+                            tpDelay[0] = tpDelay[0] - 1;
+                        }
                     }
-                }
-            };
-
-            tpDelayRunnable.runTaskTimer(this, 0L, 20L);
+                };
+                tpDelayRunnable.runTaskTimer(this, 0L, 20L);
+            }
         }
     }
 
@@ -401,11 +437,13 @@ public final class SimpleHomes extends JavaPlugin implements Listener {
                 ItemMeta homeMeta = homeItem.getItemMeta();
 
                 List<String> lore = new ArrayList<>();
-                lore.add("");
-                lore.add("§7World: " + homeLocation.getWorld().getName());
-                lore.add("§7X: " + (int) homeLocation.getX());
-                lore.add("§7Y: " + (int) homeLocation.getY());
-                lore.add("§7Z: " + (int) homeLocation.getZ());
+                if (!(streamerMode.contains(playerUUID))) {
+                    lore.add("");
+                    lore.add("§7World: " + homeLocation.getWorld().getName());
+                    lore.add("§7X: " + (int) homeLocation.getX());
+                    lore.add("§7Y: " + (int) homeLocation.getY());
+                    lore.add("§7Z: " + (int) homeLocation.getZ());
+                }
                 lore.add("");
                 lore.add("§eClick to teleport!");
 

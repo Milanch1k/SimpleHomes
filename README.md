@@ -2,10 +2,14 @@
 > *Core: Paper 1.21+*
 > 
 > *Version: 1.0.0*
+> 
+> https://modrinth.com/plugin/simple--homes
 
 ### Commands:
-- /homes
-- /simplehomes
+- /homes - Opens the homes menu
+- /simplehomes - Admin command to reload yml files
+- /SHStreamerMode - Allows you to hide the coordinates of houses in /homes
+- /home - You can teleport to your homes without opening the menu (/home 1, /home 2, etc.)
 
 ### Permissions:
 - simplehomes.homes
@@ -13,6 +17,8 @@
 - simplehomes.quadruple
 - simplehomes.triple
 - simplehomes.double
+- simplehomes.home
+- simplehomes.shstreamermode
 
 ### Config
 ````yml
