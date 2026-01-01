@@ -1,7 +1,7 @@
 # SimpleHomes
 > *Core: Paper 1.21+*
 > 
-> *Version: 1.0.0*
+> *Version: 1.1.0*
 > 
 > https://modrinth.com/plugin/simple--homes
 
@@ -35,6 +35,7 @@ menu-sign-text: "§funtitled.server.net"
 # Success messages
 home-set-success: "§aHome #%index% set! Total homes: %current%/%max%"
 teleport-success: "§aTeleport to home #%index%!"
+successfully: "§aSuccessfully"
 
 # Error messages
 max-homes-reached: "§cYou have reached the maximum number of homes (%max%)!"
@@ -43,11 +44,14 @@ world-error: "§cHome world not found!"
 break-bed: "§cThe bed in home #%index% was destroyed! The home has been removed from the list."
 bed-destroyed: "§cOne of your homes has been destroyed!"
 delay: "§cYou will be able to teleport in %secs% seconds"
+no-homes: "§cYou have no homes"
+wrong-syntax: "§cWrong syntax"
+many-houses: "§cThere aren't that many houses"
 
 # Menu texts
 home-item-name: "§fʜᴏᴍᴇ #§3%index%"
 empty-slot-name: "§cᴇᴍᴘᴛʏ"
 
 # Actionbar
-tp-delay: "§fYou have been teleported in %secs% seconds to home #%index%"
+tp-delay: "§fYou will be teleported in §3%secs% §fseconds to home #§3%index%"
 ````
